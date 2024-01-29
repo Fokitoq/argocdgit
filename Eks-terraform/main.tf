@@ -1,7 +1,4 @@
-#Adding Provider details
-provider "aws" {
-    region = "us-east-1"
-  }
+
 
 #Create a custom VPC
   resource "aws_vpc" "myvpc" {
