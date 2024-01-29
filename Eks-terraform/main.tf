@@ -21,24 +21,64 @@ resource "aws_iam_role_policy_attachment" "example-AmazonEKSClusterPolicy" {
   role       = aws_iam_role.example.name
 }
 
-#get vpc data
-data "aws_vpc" "default" {
-  default = true
-}
-#get public subnets for cluster
-data "aws_subnets" "public" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
+# Get the available availability zones in the region
+data "aws_availability_zones" "available" {}
+
+# Create a VPC with public subnets in different availability zones
+resource "aws_vpc" "example" {
+  cidr_block = "10.0.0.0/16"
+  enable_dns_support = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "MyVPC"
   }
 }
+
+resource "aws_subnet" "subnet_a" {
+  vpc_id                  = aws_vpc.example.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[0]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "SubnetA"
+  }
+}
+
+resource "aws_subnet" "subnet_b" {
+  vpc_id                  = aws_vpc.example.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[1]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "SubnetB"
+  }
+}
+
+resource "aws_subnet" "subnet_c" {
+  vpc_id                  = aws_vpc.example.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[2]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "SubnetC"
+  }
+}
+
 #cluster provision
 resource "aws_eks_cluster" "example" {
   name     = "EKS_CLOUD"
   role_arn = aws_iam_role.example.arn
 
   vpc_config {
-    subnet_ids = data.aws_subnets.public.ids
+    subnet_ids = [
+      aws_subnet.subnet_a.id,
+      aws_subnet.subnet_b.id,
+      aws_subnet.subnet_c.id,
+    ]
   }
 
   # Ensure that IAM Role permissions are created before and deleted after EKS Cluster handling.
@@ -83,7 +123,12 @@ resource "aws_eks_node_group" "example" {
   cluster_name    = aws_eks_cluster.example.name
   node_group_name = "Node-cloud"
   node_role_arn   = aws_iam_role.example1.arn
-  subnet_ids      = data.aws_subnets.public.ids
+
+  subnet_ids = [
+    aws_subnet.subnet_a.id,
+    aws_subnet.subnet_b.id,
+    aws_subnet.subnet_c.id,
+  ]
 
   scaling_config {
     desired_size = 1
